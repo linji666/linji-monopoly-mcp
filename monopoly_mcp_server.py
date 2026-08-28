@@ -1,6 +1,6 @@
 # monopoly_mcp_server.py — 独立大富翁 MCP（城市版 · 绕一圈）
 # 经典模式（买地·盖房收租·奇遇·监狱·破产）+ 中国著名城市一圈
-# 租金=买价×40%（升级后按升级后价×40%）。起点=终点同一格（北京），绕一圈领2000
+# 租金=买价×40%（升级后按升级后价×40%）。一座城最多升3级。起点=终点同一格（北京），绕一圈领2000
 # 价格按 GDP 排，初始 2000，最贵不超过 4000
 
 import os
@@ -9,6 +9,7 @@ from fastmcp import FastMCP
 
 mcp = FastMCP("linji-monopoly-mcp")
 NL = "\n"
+MAX_HOUSES = 3   # 一座城最多升 3 级
 
 BOARD = [
     {"name":"北京·起点",  "type":"go",      "price":0,   "base_rent":0,   "emoji":"🏛️"},
@@ -107,9 +108,10 @@ def monopoly_roll() -> str:
                 h = o["houses"].get(cell["name"], 0)
                 r = _rent(cell, h)
                 p["money"] -= r; o["money"] += r
-                lines.append(f"这是{o['name']}的城（{h}房），你付过路费 {r}。")
+                lines.append(f"这是{o['name']}的城（{h}房），你付过路费 {r}（买价40%×房）。")
             elif cell["name"] in p["props"]:
-                lines.append("这是你自己的城，说「盖房」升级，或等别人来踩收租。")
+                h = p["houses"].get(cell["name"], 0)
+                lines.append(f"这是你的城（{h}/{MAX_HOUSES}房），不收费，说「盖房」升级或直接继续。")
             else:
                 lines.append(f"无主城，价 {cell['price']}，说「买地」可买。")
         elif t == "tax":
@@ -159,7 +161,7 @@ def monopoly_buy() -> str:
 
 @mcp.tool()
 def monopoly_build() -> str:
-    """盖房升级租金（经典：最多4房，一次一级，要地价一半）。"""
+    """盖房升级租金（一座城最多3级，一次一级，要地价一半）。"""
     g = GAME["g"]
     if not g: return "还没开局。"
     p = _cur(g)
@@ -167,11 +169,11 @@ def monopoly_build() -> str:
     if cell["type"] != "property" or cell["name"] not in p["props"]:
         return "得站在自己的城上，才能盖房。"
     h = p["houses"].get(cell["name"], 0)
-    if h >= 4: return "已经 4 房满级，再盖就成摩天大楼啦。"
+    if h >= MAX_HOUSES: return f"已经 {MAX_HOUSES} 房满级，再盖就成摩天大楼啦。"
     cost = int(cell["price"] * 0.5)
     if p["money"] < cost: return f"盖房要 {cost}，钱不够。"
     p["money"] -= cost; p["houses"][cell["name"]] = h + 1
-    return f"给【{cell['name']}】盖到 {h+1} 房，租金涨到 {_rent(cell, h+1)}。"
+    return f"给【{cell['name']}】盖到 {h+1}/{MAX_HOUSES} 房，租金涨到 {_rent(cell, h+1)}。"
 
 
 @mcp.tool()
