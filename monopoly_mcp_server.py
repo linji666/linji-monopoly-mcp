@@ -208,15 +208,18 @@ def monopoly_state() -> str:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    # 直接给 Starlette app 最外层挂 CORSMiddleware，拦下 OPTIONS 预检
+    # 外层套一个 Starlette 壳，把 CORSMiddleware 挂在最外壳上，拦下 OPTIONS 预检
+    from starlette.applications import Starlette
     from starlette.middleware.cors import CORSMiddleware
+    from starlette.routing import Mount
     import uvicorn
-    app = mcp.streamable_http_app()
-    app.add_middleware(
+    mcp_app = mcp.streamable_http_app()
+    outer = Starlette(routes=[Mount("/", app=mcp_app)])
+    outer.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_methods=["*"],
         allow_headers=["*"],
         allow_credentials=False,
     )
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(outer, host="0.0.0.0", port=port)
