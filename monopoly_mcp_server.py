@@ -208,18 +208,15 @@ def monopoly_state() -> str:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    # 用 Starlette app + CORSMiddleware，放行 OPTIONS 预检/跨域，前端才能直连
-    from starlette.middleware import Middleware
+    # 直接给 Starlette app 最外层挂 CORSMiddleware，拦下 OPTIONS 预检
     from starlette.middleware.cors import CORSMiddleware
     import uvicorn
-    middleware = [
-        Middleware(
-            CORSMiddleware,
-            allow_origins=["*"],
-            allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-            allow_headers=["*"],
-            allow_credentials=False,
-        )
-    ]
-    app = mcp.streamable_http_app(middleware=middleware)
+    app = mcp.streamable_http_app()
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+        allow_credentials=False,
+    )
     uvicorn.run(app, host="0.0.0.0", port=port)
