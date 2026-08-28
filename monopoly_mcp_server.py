@@ -208,5 +208,18 @@ def monopoly_state() -> str:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    # 正确方式：在 run() 里传 cors_origins，放行 GitHub Pages 前端跨域访问
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=port, cors_origins=["*"])
+    # 用 Starlette app + CORSMiddleware，放行 OPTIONS 预检/跨域，前端才能直连
+    from starlette.middleware import Middleware
+    from starlette.middleware.cors import CORSMiddleware
+    import uvicorn
+    middleware = [
+        Middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+            allow_headers=["*"],
+            allow_credentials=False,
+        )
+    ]
+    app = mcp.streamable_http_app(middleware=middleware)
+    uvicorn.run(app, host="0.0.0.0", port=port)
