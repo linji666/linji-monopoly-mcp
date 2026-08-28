@@ -208,18 +208,16 @@ def monopoly_state() -> str:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    # 同源方案：把棋盘页和 MCP 放在同一个地址（根路径返回页面，/mcp 是接口），彻底没有跨域
+    # 外层壳：/ 返回棋盘页，其余路径交给 MCP，同源无跨域
+    from starlette.applications import Starlette
     from starlette.middleware.cors import CORSMiddleware
     from starlette.responses import HTMLResponse
-    from starlette.routing import Route
+    from starlette.routing import Route, Mount
     import uvicorn, pathlib
     mcp_app = mcp.streamable_http_app()
     html_path = pathlib.Path(__file__).parent / "static" / "live.html"
     async def index(request):
         return HTMLResponse(html_path.read_text(encoding="utf-8"))
-    try:
-        mcp_app.router.routes.insert(0, Route("/", index))
-    except Exception:
-        pass
-    mcp_app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False)
-    uvicorn.run(mcp_app, host="0.0.0.0", port=port)
+    outer = Starlette(routes=[Route("/", index), Mount("/", app=mcp_app)])
+    outer.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False)
+    uvicorn.run(outer, host="0.0.0.0", port=port)
