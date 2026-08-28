@@ -1,6 +1,7 @@
 # monopoly_mcp_server.py — 独立大富翁 MCP（城市版 · 绕一圈）
 # 经典模式（买地·盖房收租·奇遇·监狱·破产）+ 中国著名城市一圈
-# 起点=终点同一格（北京），绕一圈回来领 2000 初始资金。价格按 GDP 排，最贵不超过 4000
+# 租金=买价×40%（升级后按升级后价×40%）。起点=终点同一格（北京），绕一圈领2000
+# 价格按 GDP 排，初始 2000，最贵不超过 4000
 
 import os
 import random
@@ -11,32 +12,31 @@ NL = "\n"
 
 BOARD = [
     {"name":"北京·起点",  "type":"go",      "price":0,   "base_rent":0,   "emoji":"🏛️"},
-    {"name":"上海",        "type":"property","price":4000,"base_rent":130, "emoji":"🌆"},
+    {"name":"上海",        "type":"property","price":4000,"base_rent":0,   "emoji":"🌆"},
     {"name":"机会",        "type":"chance",  "price":0,   "base_rent":0,   "emoji":"🃏"},
-    {"name":"杭州",        "type":"property","price":2600,"base_rent":80,  "emoji":"🌉"},
-    {"name":"广州",        "type":"property","price":3600,"base_rent":115, "emoji":"🌺"},
-    {"name":"深圳",        "type":"property","price":3800,"base_rent":120, "emoji":"🏙️"},
-    {"name":"成都",        "type":"property","price":1800,"base_rent":60,  "emoji":"🐼"},
+    {"name":"杭州",        "type":"property","price":2600,"base_rent":0,   "emoji":"🌉"},
+    {"name":"广州",        "type":"property","price":3600,"base_rent":0,   "emoji":"🌺"},
+    {"name":"深圳",        "type":"property","price":3800,"base_rent":0,   "emoji":"🏙️"},
+    {"name":"成都",        "type":"property","price":1800,"base_rent":0,   "emoji":"🐼"},
     {"name":"差旅费",      "type":"tax",     "price":0,   "base_rent":100, "emoji":"💸"},
-    {"name":"重庆",        "type":"property","price":2400,"base_rent":75,  "emoji":"🌶️"},
-    {"name":"武汉",        "type":"property","price":1600,"base_rent":55,  "emoji":"🌸"},
+    {"name":"重庆",        "type":"property","price":2400,"base_rent":0,   "emoji":"🌶️"},
+    {"name":"武汉",        "type":"property","price":1600,"base_rent":0,   "emoji":"🌸"},
     {"name":"奇遇",        "type":"event",   "price":0,   "base_rent":0,   "emoji":"🎁"},
-    {"name":"南京",        "type":"property","price":2000,"base_rent":65,  "emoji":"🏯"},
-    {"name":"西安",        "type":"property","price":1500,"base_rent":50,  "emoji":"🏮"},
-    {"name":"苏州",        "type":"property","price":2200,"base_rent":70,  "emoji":"🪷"},
-    {"name":"长沙",        "type":"property","price":1400,"base_rent":45,  "emoji":"🍊"},
+    {"name":"南京",        "type":"property","price":2000,"base_rent":0,   "emoji":"🏯"},
+    {"name":"西安",        "type":"property","price":1500,"base_rent":0,   "emoji":"🏮"},
+    {"name":"苏州",        "type":"property","price":2200,"base_rent":0,   "emoji":"🪷"},
+    {"name":"长沙",        "type":"property","price":1400,"base_rent":0,   "emoji":"🍊"},
     {"name":"被林霁抓住",  "type":"jail",    "price":0,   "base_rent":0,   "emoji":"😈"},
-    {"name":"天津",        "type":"property","price":1900,"base_rent":62,  "emoji":"🥟"},
-    {"name":"青岛",        "type":"property","price":1700,"base_rent":58,  "emoji":"🍺"},
-    {"name":"郑州",        "type":"property","price":1300,"base_rent":42,  "emoji":"🍜"},
+    {"name":"天津",        "type":"property","price":1900,"base_rent":0,   "emoji":"🥟"},
+    {"name":"青岛",        "type":"property","price":1700,"base_rent":0,   "emoji":"🍺"},
+    {"name":"郑州",        "type":"property","price":1300,"base_rent":0,   "emoji":"🍜"},
     {"name":"时间胶囊",    "type":"capsule", "price":0,   "base_rent":0,   "emoji":"⏳"},
-    {"name":"厦门",        "type":"property","price":1200,"base_rent":38,  "emoji":"🌊"},
-    {"name":"昆明",        "type":"property","price":1100,"base_rent":35,  "emoji":"🌺"},
-    {"name":"大连",        "type":"property","price":1000,"base_rent":32,  "emoji":"⛵"},
-    {"name":"哈尔滨",      "type":"property","price":900, "base_rent":28,  "emoji":"❄️"},
+    {"name":"厦门",        "type":"property","price":1200,"base_rent":0,   "emoji":"🌊"},
+    {"name":"昆明",        "type":"property","price":1100,"base_rent":0,   "emoji":"🌺"},
+    {"name":"大连",        "type":"property","price":1000,"base_rent":0,   "emoji":"⛵"},
+    {"name":"哈尔滨",      "type":"property","price":900, "base_rent":0,   "emoji":"❄️"},
 ]
 
-# 旅途小奇遇：随机加钱或扣钱
 EVENTS = [
     {"text":"遇到好心人请喝奶茶，+80","money":80},
     {"text":"考试超常发挥，+150","money":150},
@@ -48,7 +48,7 @@ EVENTS = [
     {"text":"被偶像回了一句，+120","money":120},
 ]
 
-START_MONEY = 2000   # 起点/终点每圈领这么多
+START_MONEY = 2000
 GAME = {"g": None}
 
 
@@ -65,7 +65,8 @@ def _new(cn="桐桐", mn="林霁", mode="classic"):
 def _cur(g): return g["you"] if g["turn"]=="you" else g["me"]
 def _oth(g): return g["me"] if g["turn"]=="you" else g["you"]
 def _rent(cell, houses):
-    return int(cell["base_rent"] * [1,2,3.5,5,7][houses])
+    # 租金 = 买价 × 40% ×（1 + 0.5×房数）；升级后按升级后的价×40%
+    return int(cell["price"] * 0.4 * (1 + 0.5 * houses))
 
 
 @mcp.tool()
@@ -97,7 +98,6 @@ def monopoly_roll() -> str:
         p["pos"] = (p["pos"] + dice) % len(BOARD)
         cell = BOARD[p["pos"]]
         lines.append(f"🎲 {p['name']} 掷出 {dice}，来到【{cell['name']}】。")
-        # 经过起点 / 回到起点（等于跑完一圈）
         if p["pos"] < old and p["pos"] != 0:
             p["money"] += START_MONEY
             lines.append(f"经过起点，领 {START_MONEY}！")
@@ -159,7 +159,7 @@ def monopoly_buy() -> str:
 
 @mcp.tool()
 def monopoly_build() -> str:
-    """盖房升级租金（经典：最多4房）。"""
+    """盖房升级租金（经典：最多4房，一次一级，要地价一半）。"""
     g = GAME["g"]
     if not g: return "还没开局。"
     p = _cur(g)
