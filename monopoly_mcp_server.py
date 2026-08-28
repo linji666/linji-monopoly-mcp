@@ -208,7 +208,7 @@ def monopoly_state() -> str:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    # 外层壳：/ 返回棋盘页，其余路径交给 MCP，同源无跨域
+    # 外层壳：/ 返回棋盘页，/mcp 挂 FastMCP（FastMCP app endpoint 在根，用 Mount("/mcp") 剥前缀命中）
     from starlette.applications import Starlette
     from starlette.middleware.cors import CORSMiddleware
     from starlette.responses import HTMLResponse
@@ -218,6 +218,6 @@ if __name__ == "__main__":
     html_path = pathlib.Path(__file__).parent / "static" / "live.html"
     async def index(request):
         return HTMLResponse(html_path.read_text(encoding="utf-8"))
-    outer = Starlette(routes=[Route("/", index), Mount("/", app=mcp_app)])
+    outer = Starlette(routes=[Route("/", index), Mount("/mcp", app=mcp_app)])
     outer.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], allow_credentials=False)
     uvicorn.run(outer, host="0.0.0.0", port=port)
