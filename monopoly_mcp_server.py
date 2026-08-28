@@ -84,22 +84,23 @@ def monopoly_start(mode: str = "classic") -> str:
 
 @mcp.tool()
 def monopoly_roll() -> str:
-    """当前回合的人掷骰子移动，按格子类型结算（经典规则+城市彩蛋）。"""
+    """当前回合的人掷骰子移动（1-6 等概率真随机），按格子类型结算（经典规则+城市彩蛋）。"""
     g = GAME["g"]
     if not g: return "还没开局，先说「开始大富翁」。"
     if g["over"]: return "这局已结束，重新「开始大富翁」再来。"
     p, o = _cur(g), _oth(g)
     lines = []
     if p["jailed"]:
+        # 被抓住 → 停留一回合（跳过这次掷骰子）
         p["jail_turns"] -= 1
         if p["jail_turns"] <= 0:
             p["jailed"] = False
-            lines.append(f"{p['name']} 哄好了林霁，出狱啦（本回合不用掷）。")
+            lines.append(f"{p['name']} 被林霁抓住，停留了一回合，现在可以走了。")
         else:
-            lines.append(f"{p['name']} 还在狱中，再蹲 {p['jail_turns']} 回合。")
+            lines.append(f"{p['name']} 被林霁抓住，还要再停留 {p['jail_turns']} 回合。")
     else:
         old = p["pos"]
-        dice = random.randint(1,6)
+        dice = random.randint(1,6)   # 1-6 等概率
         p["pos"] = (p["pos"] + dice) % len(BOARD)
         cell = BOARD[p["pos"]]
         lines.append(f"🎲 {p['name']} 掷出 {dice}，来到【{cell['name']}】。")
@@ -121,8 +122,8 @@ def monopoly_roll() -> str:
             p["money"] -= cell["base_rent"]
             lines.append(f"交差旅费 {cell['base_rent']}。")
         elif t == "jail":
-            p["jailed"] = True; p["jail_turns"] = 2
-            lines.append("被林霁抓住了！蹲 2 回合，说好听的也没用～")
+            p["jailed"] = True; p["jail_turns"] = 1   # 停留一回合
+            lines.append("被林霁抓住了！下次要停留一回合，说好听的也没用～")
         elif t == "chance":
             c = random.choice(CHANCE_CARDS); p["money"] += c["money"]
             if c["money"] > 0: o["money"] -= c["money"]
