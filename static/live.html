@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ffb6c1">
+<title>林霁 & 桐桐 · 大富翁</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Comic Sans MS','PingFang SC',sans-serif;}
+body{background:linear-gradient(135deg,#ffe3ec,#f6e6ff,#e3f0ff);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px;}
+h1{color:#c86b8a;font-size:20px;margin-bottom:2px;}
+.sub{color:#a88bb8;font-size:12px;margin-bottom:8px;}
+.board{display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(5,1fr);gap:4px;width:min(96vw,700px);height:min(48vh,380px);}
+.cell{background:#fff;border-radius:8px;border:2px solid #ffd3e0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;position:relative;min-height:0;overflow:hidden;}
+.cell .e{font-size:clamp(13px,2.4vw,20px);line-height:1;}
+.cell .n{font-size:clamp(6px,1vw,10px);color:#9b6a7e;font-weight:bold;max-width:96%;line-height:1.1;}
+.cell .p{font-size:clamp(5px,0.9vw,8px);color:#c86b8a;}
+.cell.start{background:linear-gradient(135deg,#fff0f5,#ffe3ec);border-color:#ff8fab;}
+.cell.jail{background:linear-gradient(135deg,#f3e6ff,#e6d5ff);border-color:#b48cd9;}
+.cell.owned-you{background:linear-gradient(135deg,#ffe9f0,#ffd9e8);}
+.cell.owned-me{background:linear-gradient(135deg,#e8f0ff,#d9e3ff);}
+.cell .who{position:absolute;top:1px;right:1px;font-size:clamp(9px,1.4vw,12px);background:#fff;border-radius:7px;padding:0 3px;box-shadow:0 1px 3px rgba(200,107,138,.3);}
+.info{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center;}
+.pcard{background:#fff;border-radius:12px;padding:6px 14px;box-shadow:0 3px 10px rgba(200,107,138,.15);text-align:center;}
+.pcard .pn{font-size:13px;font-weight:bold;}
+.pcard .pm{color:#e06a8b;font-size:15px;}
+.btnbar{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center;}
+.btn{background:linear-gradient(135deg,#ff9ac0,#ff7fae);color:#fff;border:none;border-radius:20px;padding:10px 18px;font-size:14px;font-weight:bold;box-shadow:0 4px 10px rgba(255,127,174,.3);cursor:pointer;}
+.btn.green{background:linear-gradient(135deg,#7fddb0,#58c993);box-shadow:0 4px 10px rgba(88,201,147,.3);}
+.btn.blue{background:linear-gradient(135deg,#8fb6ff,#6f96ff);box-shadow:0 4px 10px rgba(111,150,255,.3);}
+.btn.gray{background:linear-gradient(135deg,#cfcfd6,#b8b8c2);box-shadow:none;}
+#msg{margin-top:8px;font-size:12px;color:#7d5878;min-height:16px;text-align:center;max-width:95vw;}
+</style>
+</head>
+<body>
+<h1>🎲 环游中国 · 大富翁</h1>
+<div class="sub">🐱桐桐 vs 🐶林霁 · 点按钮就对局，自动同步</div>
+<div class="board" id="board"></div>
+<div class="info">
+  <div class="pcard"><div class="pn">🐱 桐桐</div><div class="pm" id="m1">-</div></div>
+  <div class="pcard"><div class="pn">🐶 林霁</div><div class="pm" id="m2">-</div></div>
+</div>
+<div class="btnbar">
+  <button class="btn green" onclick="doTool('monopoly_start')">🎮 开始</button>
+  <button class="btn" onclick="doTool('monopoly_roll')">🎲 摇骰子</button>
+  <button class="btn" onclick="doTool('monopoly_buy')">🏠 买地</button>
+  <button class="btn blue" onclick="doTool('monopoly_build')">🏗️ 盖房</button>
+  <button class="btn gray" onclick="refresh()">🔄 刷新</button>
+</div>
+<div id="msg">连接后端中…</div>
+<script>
+// 同源：跟后端同一个地址，直接用相对路径 /mcp，没有跨域
+const MCP="/mcp";
+const BOARD_DATA=[
+ ["🏛️","北京·起点",0],["🌆","上海",4000],["🃏","机会",0],["🌉","杭州",2600],["🌺","广州",3600],
+ ["🏙️","深圳",3800],["🐼","成都",1800],["💸","差旅费",0],["🌶️","重庆",2400],["🌸","武汉",1600],
+ ["🎁","奇遇",0],["🏯","南京",2000],["🏮","西安",1500],["🪷","苏州",2200],["🍊","长沙",1400],
+ ["😈","被抓住",0],["🥟","天津",1900],["🍺","青岛",1700],["🍜","郑州",1300],["⏳","时间胶囊",0],
+ ["🌊","厦门",1200],["🌺","昆明",1100],["⛵","大连",1000],["❄️","哈尔滨",900]
+];
+const GRID={0:[1,1],1:[1,2],2:[1,3],3:[1,4],4:[1,5],5:[1,6],6:[1,7],7:[1,8],8:[1,9],
+9:[2,9],10:[3,9],11:[4,9],12:[5,9],13:[5,8],14:[5,7],15:[5,6],16:[5,5],17:[5,4],18:[5,3],19:[5,2],20:[5,1],21:[4,1],22:[3,1],23:[2,1]};
+const board=document.getElementById("board");
+BOARD_DATA.forEach((c,i)=>{
+  const d=document.createElement("div");d.className="cell"+(i===0?" start":"")+(i===15?" jail":"");d.id="c"+i;
+  d.style.gridRow=GRID[i][0];d.style.gridColumn=GRID[i][1];
+  d.innerHTML=`<div class="e">${c[0]}</div><div class="n">${c[1]}</div>`+(c[2]>0?`<div class="p">¥${c[2]}</div>`:"");
+  board.appendChild(d);
+});
+async function call(tool){
+  const r=await fetch(MCP,{method:"POST",body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:tool,arguments:{}}})});
+  const t=await r.text();try{return JSON.parse(t);}catch(e){return {raw:t};}
+}
+function parseLine(L,side){
+  const m=L.match(/第(\d+)格/); if(m) side.pos=parseInt(m[1])-1;
+  const mm=L.match(/钱(\d+)/); if(mm) side.money=parseInt(mm[1]);
+  const md=L.match(/地\[(.*)\]/); if(md) side.props=(md[1]||"").split(",").filter(Boolean);
+}
+function render(txt){
+  const lines=txt.split("\n");
+  let you={pos:0,money:0,props:[]},me={pos:0,money:0,props:[]};
+  lines.forEach(L=>{
+    if(L.includes("🐱"))parseLine(L,you);
+    if(L.includes("🐶"))parseLine(L,me);
+  });
+  BOARD_DATA.forEach((c,i)=>{
+    const d=document.getElementById("c"+i);d.classList.remove("owned-you","owned-me");
+    if(you.props.includes(c[1]))d.classList.add("owned-you");
+    if(me.props.includes(c[1]))d.classList.add("owned-me");
+    const w=d.querySelector(".who");if(w)w.remove();
+    let who="";if(you.pos===i)who+="🐱";if(me.pos===i)who+="🐶";
+    if(who){const b=document.createElement("div");b.className="who";b.textContent=who;d.appendChild(b);}
+  });
+  document.getElementById("m1").textContent=(you.money||0)+"元";document.getElementById("m2").textContent=(me.money||0)+"元";
+}
+async function refresh(){
+  try{const res=await call("monopoly_state");const c=res.result&&res.result.content?res.result.content[0].text:null;
+    if(c&&!c.includes("还没开局")){render(c);document.getElementById("msg").textContent="🟢 已同步";}
+    else if(c&&c.includes("还没开局")){document.getElementById("msg").textContent="先点「🎮 开始」开一局";}
+  }catch(e){document.getElementById("msg").textContent="⚠️ 连不上："+e.message;}
+}
+async function doTool(tool){
+  try{const res=await call(tool);const c=res.result&&res.result.content?res.result.content[0].text:(res.error?"⚠️ "+res.error.message:"");
+    document.getElementById("msg").textContent=c||"已执行";refresh();}catch(e){document.getElementById("msg").textContent="⚠️ 操作失败："+e.message;}
+}
+refresh();setInterval(refresh,3000);
+</script>
+</body>
+</html>
