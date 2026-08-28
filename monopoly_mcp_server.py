@@ -1,7 +1,6 @@
-# monopoly_mcp_server.py — 独立大富翁 MCP
-# 经典模式（买地·盖房收租·机会/命运卡·监狱·破产）+ 中国城市版地图
-# 价格按城市 GDP/发达程度排，初始 2000，最贵不超过 4000
-# 可单独部署（FastMCP streamable-http），用 RikkaHub 等接入
+# monopoly_mcp_server.py — 独立大富翁 MCP（城市版 · 绕一圈）
+# 经典模式（买地·盖房收租·机会/命运卡·监狱·破产）+ 中国著名城市一圈
+# 起点=终点同一格（北京），绕一圈回来。价格按 GDP 排，初始 2000，最贵不超过 4000
 
 import os
 import random
@@ -10,23 +9,32 @@ from fastmcp import FastMCP
 mcp = FastMCP("linji-monopoly-mcp")
 NL = "\n"
 
-# ---- 棋盘（15 格：中国著名城市一圈，价格按 GDP；越富越贵）----
+# ---- 棋盘（24 格：中国城市一圈，起点=终点同一格；价格按 GDP 越富越贵）----
 BOARD = [
     {"name":"北京·起点",  "type":"go",      "price":0,   "base_rent":0,   "emoji":"🏛️"},
     {"name":"上海",        "type":"property","price":4000,"base_rent":130, "emoji":"🌆"},
+    {"name":"机会",        "type":"chance",  "price":0,   "base_rent":0,   "emoji":"🃏"},
     {"name":"杭州",        "type":"property","price":2600,"base_rent":80,  "emoji":"🌉"},
     {"name":"广州",        "type":"property","price":3600,"base_rent":115, "emoji":"🌺"},
-    {"name":"机会",        "type":"chance",  "price":0,   "base_rent":0,   "emoji":"🃏"},
     {"name":"深圳",        "type":"property","price":3800,"base_rent":120, "emoji":"🏙️"},
     {"name":"成都",        "type":"property","price":1800,"base_rent":60,  "emoji":"🐼"},
     {"name":"差旅费",      "type":"tax",     "price":0,   "base_rent":100, "emoji":"💸"},
-    {"name":"命运",        "type":"fate",    "price":0,   "base_rent":0,   "emoji":"🎲"},
     {"name":"重庆",        "type":"property","price":2400,"base_rent":75,  "emoji":"🌶️"},
-    {"name":"南京",        "type":"property","price":2000,"base_rent":65,  "emoji":"🏯"},
-    {"name":"被林霁抓住",  "type":"jail",    "price":0,   "base_rent":0,   "emoji":"😈"},
     {"name":"武汉",        "type":"property","price":1600,"base_rent":55,  "emoji":"🌸"},
+    {"name":"命运",        "type":"fate",    "price":0,   "base_rent":0,   "emoji":"🎲"},
+    {"name":"南京",        "type":"property","price":2000,"base_rent":65,  "emoji":"🏯"},
+    {"name":"西安",        "type":"property","price":1500,"base_rent":50,  "emoji":"🏮"},
+    {"name":"苏州",        "type":"property","price":2200,"base_rent":70,  "emoji":"🪷"},
+    {"name":"长沙",        "type":"property","price":1400,"base_rent":45,  "emoji":"🍊"},
+    {"name":"被林霁抓住",  "type":"jail",    "price":0,   "base_rent":0,   "emoji":"😈"},
+    {"name":"天津",        "type":"property","price":1900,"base_rent":62,  "emoji":"🥟"},
+    {"name":"青岛",        "type":"property","price":1700,"base_rent":58,  "emoji":"🍺"},
+    {"name":"郑州",        "type":"property","price":1300,"base_rent":42,  "emoji":"🍜"},
     {"name":"时间胶囊",    "type":"capsule", "price":0,   "base_rent":0,   "emoji":"⏳"},
-    {"name":"西安·回起点", "type":"loop",    "price":0,   "base_rent":0,   "emoji":"🏮"},
+    {"name":"厦门",        "type":"property","price":1200,"base_rent":38,  "emoji":"🌊"},
+    {"name":"昆明",        "type":"property","price":1100,"base_rent":35,  "emoji":"🌺"},
+    {"name":"大连",        "type":"property","price":1000,"base_rent":32,  "emoji":"⛵"},
+    {"name":"哈尔滨",      "type":"property","price":900, "base_rent":28,  "emoji":"❄️"},
 ]
 
 CHANCE_CARDS = [
@@ -63,16 +71,15 @@ def _new(cn="桐桐", mn="林霁", mode="classic"):
 def _cur(g): return g["you"] if g["turn"]=="you" else g["me"]
 def _oth(g): return g["me"] if g["turn"]=="you" else g["you"]
 def _rent(cell, houses):
-    # 经典规则：租金随房产等级涨（0房=base，1房x2，2房x3.5，3房x5，4房=大酒店x7）
     return int(cell["base_rent"] * [1,2,3.5,5,7][houses])
 
 
 @mcp.tool()
 def monopoly_start(mode: str = "classic") -> str:
-    """开始一局大富翁。mode='classic'经典模式 / 'sweet'休闲模式。桐桐=🐱先手，林霁=🐶对家。"""
+    """开始一局大富翁。mode='classic'经典 / 'sweet'休闲。桐桐=🐱先手，林霁=🐶对家。北京为起点&终点，绕一圈。"""
     GAME["g"] = _new(mode=mode)
     m = "经典模式（买地·盖房收租·机会命运·监狱·破产）" if mode=="classic" else "休闲模式（轻快彩蛋向）"
-    return f"开局！🐱 桐桐先手 vs 🐶 林霁，各 {START_MONEY}，从北京出发绕全国一圈。模式：{m}。说「丢骰子」就开始。"
+    return f"开局！🐱 桐桐先手 vs 🐶 林霁，各 {START_MONEY}，从北京出发绕全国一圈，回到北京即为一圈。模式：{m}。说「丢骰子」就开始。"
 
 
 @mcp.tool()
@@ -133,8 +140,6 @@ def monopoly_roll() -> str:
         elif t == "capsule":
             p["money"] -= 60; o["money"] += 60
             lines.append("打开时间胶囊，寄走 60 给林霁。")
-        elif t == "loop":
-            lines.append("到西安啦，再往前就是北京·起点，绕完这圈。")
         elif t == "start":
             lines.append("在北京一起看天安门～")
     if p["money"] < 0:
