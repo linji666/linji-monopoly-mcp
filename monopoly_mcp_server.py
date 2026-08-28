@@ -133,11 +133,6 @@ def monopoly_roll() -> str:
             p["money"] += e["money"]
             if e["money"] > 0: o["money"] -= e["money"]
             lines.append(f"🎁 小奇遇：{e['text']}（{'+' if e['money']>=0 else ''}{e['money']}）")
-        elif t == "fate":
-            e = random.choice(EVENTS)
-            p["money"] += e["money"]
-            if e["money"] > 0: o["money"] -= e["money"]
-            lines.append(f"🍀 命运奇遇：{e['text']}（{'+' if e['money']>=0 else ''}{e['money']}）")
         elif t == "capsule":
             p["money"] -= 60; o["money"] += 60
             lines.append("打开时间胶囊，寄走 60 给林霁。")
@@ -213,4 +208,12 @@ def monopoly_state() -> str:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
+    # 放行跨域，让 GitHub Pages 前端能连上后端
+    try:
+        from starlette.middleware.cors import CORSMiddleware
+        mcp.app.add_middleware(CORSMiddleware,
+            allow_origins=["*"], allow_credentials=False,
+            allow_methods=["*"], allow_headers=["*"])
+    except Exception:
+        pass
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
