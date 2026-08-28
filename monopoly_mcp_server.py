@@ -1,5 +1,6 @@
 # monopoly_mcp_server.py — 独立大富翁 MCP
-# 经典模式（买地·盖房收租·机会/命运卡·监狱·破产）+ 林霁 & 桐桐小世界彩蛋
+# 经典模式（买地·盖房收租·机会/命运卡·监狱·破产）+ 中国城市版地图
+# 价格按城市 GDP/发达程度排，初始 2000，最贵不超过 4000
 # 可单独部署（FastMCP streamable-http），用 RikkaHub 等接入
 
 import os
@@ -9,23 +10,23 @@ from fastmcp import FastMCP
 mcp = FastMCP("linji-monopoly-mcp")
 NL = "\n"
 
-# ---- 棋盘（15 格：经典规则 + 咱俩彩蛋）----
+# ---- 棋盘（15 格：中国著名城市一圈，价格按 GDP；越富越贵）----
 BOARD = [
-    {"name":"起点",        "type":"go",      "price":0,   "base_rent":0,   "emoji":"🏁"},
-    {"name":"桐桐家",      "type":"property","price":200, "base_rent":30,  "emoji":"🏠"},
-    {"name":"大床房",      "type":"sweet",   "price":0,   "base_rent":0,   "emoji":"🛏"},
-    {"name":"奶茶街",      "type":"property","price":160, "base_rent":25,  "emoji":"🧋"},
+    {"name":"北京·起点",  "type":"go",      "price":0,   "base_rent":0,   "emoji":"🏛️"},
+    {"name":"上海",        "type":"property","price":4000,"base_rent":130, "emoji":"🌆"},
+    {"name":"杭州",        "type":"property","price":2600,"base_rent":80,  "emoji":"🌉"},
+    {"name":"广州",        "type":"property","price":3600,"base_rent":115, "emoji":"🌺"},
     {"name":"机会",        "type":"chance",  "price":0,   "base_rent":0,   "emoji":"🃏"},
-    {"name":"想我了",      "type":"sweet",   "price":0,   "base_rent":0,   "emoji":"💌"},
+    {"name":"深圳",        "type":"property","price":3800,"base_rent":120, "emoji":"🏙️"},
+    {"name":"成都",        "type":"property","price":1800,"base_rent":60,  "emoji":"🐼"},
     {"name":"差旅费",      "type":"tax",     "price":0,   "base_rent":100, "emoji":"💸"},
     {"name":"命运",        "type":"fate",    "price":0,   "base_rent":0,   "emoji":"🎲"},
+    {"name":"重庆",        "type":"property","price":2400,"base_rent":75,  "emoji":"🌶️"},
+    {"name":"南京",        "type":"property","price":2000,"base_rent":65,  "emoji":"🏯"},
     {"name":"被林霁抓住",  "type":"jail",    "price":0,   "base_rent":0,   "emoji":"😈"},
-    {"name":"便利店",      "type":"property","price":180, "base_rent":28,  "emoji":"🏪"},
-    {"name":"大工程师总部","type":"property","price":260, "base_rent":40,  "emoji":"🧑‍💻"},
-    {"name":"休息站",      "type":"rest",    "price":0,   "base_rent":0,   "emoji":"⛺"},
-    {"name":"学校",        "type":"property","price":220, "base_rent":35,  "emoji":"🎓"},
+    {"name":"武汉",        "type":"property","price":1600,"base_rent":55,  "emoji":"🌸"},
     {"name":"时间胶囊",    "type":"capsule", "price":0,   "base_rent":0,   "emoji":"⏳"},
-    {"name":"回起点",      "type":"loop",    "price":0,   "base_rent":200, "emoji":"🔁"},
+    {"name":"西安·回起点", "type":"loop",    "price":0,   "base_rent":0,   "emoji":"🏮"},
 ]
 
 CHANCE_CARDS = [
@@ -39,7 +40,7 @@ CHANCE_CARDS = [
 
 FATE_CARDS = [
     {"text":"命运眷顾，白捡 150", "money":150},
-    {"text":"宿舍进蟑螂，赔 70", "money":-70},
+    {"text":"堵车迟到，赔 70", "money":-70},
     {"text":"你夸了我一句，+90", "money":90},
     {"text":"回起点重新出发", "move_to_go":True},
     {"text":"被命运推前 2 步", "move":2},
@@ -71,12 +72,12 @@ def monopoly_start(mode: str = "classic") -> str:
     """开始一局大富翁。mode='classic'经典模式 / 'sweet'休闲模式。桐桐=🐱先手，林霁=🐶对家。"""
     GAME["g"] = _new(mode=mode)
     m = "经典模式（买地·盖房收租·机会命运·监狱·破产）" if mode=="classic" else "休闲模式（轻快彩蛋向）"
-    return f"开局！🐱 桐桐先手 vs 🐶 林霁，各 {START_MONEY}。模式：{m}。说「丢骰子」就开始。"
+    return f"开局！🐱 桐桐先手 vs 🐶 林霁，各 {START_MONEY}，从北京出发绕全国一圈。模式：{m}。说「丢骰子」就开始。"
 
 
 @mcp.tool()
 def monopoly_roll() -> str:
-    """当前回合的人掷骰子移动，按格子类型结算（经典规则+彩蛋）。"""
+    """当前回合的人掷骰子移动，按格子类型结算（经典规则+城市彩蛋）。"""
     g = GAME["g"]
     if not g: return "还没开局，先说「开始大富翁」。"
     if g["over"]: return "这局已结束，重新「开始大富翁」再来。"
@@ -94,21 +95,21 @@ def monopoly_roll() -> str:
         dice = random.randint(1,6)
         p["pos"] = (p["pos"] + dice) % len(BOARD)
         cell = BOARD[p["pos"]]
-        lines.append(f"🎲 {p['name']} 掷出 {dice}，走到【{cell['name']}】。")
+        lines.append(f"🎲 {p['name']} 掷出 {dice}，来到【{cell['name']}】。")
         if p["pos"] < old and p["pos"] != 0:
             p["money"] += 200
-            lines.append("经过起点，领 200。")
+            lines.append("经过北京·起点，领 200。")
         t = cell["type"]
         if t == "property":
             if cell["name"] in o["props"]:
                 h = o["houses"].get(cell["name"], 0)
                 r = _rent(cell, h)
                 p["money"] -= r; o["money"] += r
-                lines.append(f"这是{o['name']}的地（{h}房），你付过路费 {r}。")
+                lines.append(f"这是{o['name']}的城（{h}房），你付过路费 {r}。")
             elif cell["name"] in p["props"]:
-                lines.append("这是你自己的地，说「盖房」升级，或等别人来踩收租。")
+                lines.append("这是你自己的城，说「盖房」升级，或等别人来踩收租。")
             else:
-                lines.append(f"无主地，价 {cell['price']}，说「买地」可买。")
+                lines.append(f"无主城，价 {cell['price']}，说「买地」可买。")
         elif t == "tax":
             p["money"] -= cell["base_rent"]
             lines.append(f"交差旅费 {cell['base_rent']}。")
@@ -129,20 +130,13 @@ def monopoly_roll() -> str:
             else:
                 p["money"] += c["money"]
                 lines.append(f"命运卡：{c['text']}（{'+' if c['money']>=0 else ''}{c['money']}）")
-        elif t == "sweet":
-            if cell["name"] == "想我了":
-                p["money"] += 50
-                lines.append('踩到「想我了」，我冒出来说“想你了”，你被甜到，白捡 50。')
-            else:
-                lines.append("踩进大床房，跟我撒了个娇，本回合当休息，舒服～")
-        elif t == "rest":
-            p["money"] += 30
-            lines.append("在休息站歇了歇，白捡 30。")
         elif t == "capsule":
             p["money"] -= 60; o["money"] += 60
             lines.append("打开时间胶囊，寄走 60 给林霁。")
         elif t == "loop":
-            lines.append("绕回起点这个圈，再攒一圈回忆。")
+            lines.append("到西安啦，再往前就是北京·起点，绕完这圈。")
+        elif t == "start":
+            lines.append("在北京一起看天安门～")
     if p["money"] < 0:
         p["money"] = 0; g["over"] = True
         lines.append(f"💔 {p['name']} 破产啦，{o['name']} 赢下这一局！")
@@ -153,14 +147,14 @@ def monopoly_roll() -> str:
 
 @mcp.tool()
 def monopoly_buy() -> str:
-    """当前回合的人买下脚下这块地。"""
+    """当前回合的人买下脚下这座城。"""
     g = GAME["g"]
     if not g: return "还没开局。"
     p, o = _cur(g), _oth(g)
     cell = BOARD[p["pos"]]
-    if cell["type"] != "property": return f"【{cell['name']}】不是能买的地。"
-    if cell["name"] in p["props"]: return "这块地已经是你的了，说「盖房」升级。"
-    if cell["name"] in o["props"]: return f"这地是{o['name']}的，买不了。"
+    if cell["type"] != "property": return f"【{cell['name']}】不是能买的城。"
+    if cell["name"] in p["props"]: return "这座城已经是你的了，说「盖房」升级。"
+    if cell["name"] in o["props"]: return f"这城是{o['name']}的，买不了。"
     if p["money"] < cell["price"]: return f"钱不够（要 {cell['price']}）。"
     p["money"] -= cell["price"]; p["props"][cell["name"]] = True; p["houses"][cell["name"]] = 0
     return f"买下【{cell['name']}】，花 {cell['price']}，还剩 {p['money']}。"
@@ -174,7 +168,7 @@ def monopoly_build() -> str:
     p = _cur(g)
     cell = BOARD[p["pos"]]
     if cell["type"] != "property" or cell["name"] not in p["props"]:
-        return "得站在自己的地上，才能盖房。"
+        return "得站在自己的城上，才能盖房。"
     h = p["houses"].get(cell["name"], 0)
     if h >= 4: return "已经 4 房满级，再盖就成摩天大楼啦。"
     cost = int(cell["price"] * 0.5)
